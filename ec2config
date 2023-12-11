@@ -1,0 +1,37 @@
+//code konfigurasi yang digunakan dalam project
+
+//untuk mengakses RDS pada aws
+sudo dnf install mariadb105
+mysql -h endpoint -P 3306 -u admin -p
+
+//untuk mengakses S3 bucket pada ec2 instance
+aws s3 ls s3://serverwebbucket
+
+//untuk mengkases EFS pada ec2 instance
+sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport fs-02bdd6d11d578cc94.efs.ap-southeast-1.amazonaws.com:/ efs
+
+//membuat backup database ke EFS
+#!/bin/bash
+# Kredensial database
+DB_USER="admin"
+DB_PASS="admin123"
+DB_NAME="webserverdb"
+# Direktori mount EFS di instance EC2
+EFS_MOUNT_DIR="/home/ec2-user/efs"
+# Eksekusi backup dengan mysqldump
+output=$(mysqldump -h webserver.crdgbeqjqg1k.ap-southeast-1.rds.amazonaws.com -P 3306 -u $DB_USER -p$DB_PASS $DB_NAME > $EFS_MOUNT_DIR/backup.sql 2>&1)
+# Periksa status eksekusi mysqldump
+if [ $? -eq 0 ]; then
+    echo "Backup berhasil pada $(date)" >> /home/ec2-user/backup.log
+else
+    echo "Backup gagal pada $(date). Error: $output" >> /home/ec2-user/backup.log
+fi
+
+//mengatur agar bash dijalankan pada waktu tertentu
+crontab -e
+0 2 * * * /home/ec2-user/efs/script.sh
+
+//mengecek apakah berhasil melakukan backup ke EFS
+cat backup.log
+ls -al /home/ec2-user/efs
+cat /home/ec2-user/efs/backup.sql
